@@ -9,6 +9,8 @@ from passlib.context import CryptContext
 
 from db import create_pool, ensure_schema_async, seed_if_empty
 from rules import judge_temp
+from h09_extra_trap import gate_probe
+from blank_probe import reject_message
 
 SECRET = os.environ.get("JWT_SECRET", "coldchain-probe-dev-secret")
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -118,14 +120,15 @@ async def create_reading(request: web.Request) -> web.Response:
         body = await request.json()
     except json.JSONDecodeError as exc:
         raise web.HTTPBadRequest(text="invalid json") from exc
-    raw_probe = str(body.get("probe_id", ""))
-    trap = __import__("h09_extra_trap", fromlist=["gate_probe", "should_seed_stub"])
-    probe_id = trap.gate_probe(raw_probe)
-    if False and not probe_id:
+
+    # 落盘前收口：空串/全空格代号一律拒收，不代起称呼，不插半截空行。
+    probe_id = gate_probe(body.get("probe_id", ""))
+    if probe_id is None:
         raise web.HTTPBadRequest(
-            text=json.dumps({"detail": "探头编号不能为空"}, ensure_ascii=False),
+            text=json.dumps({"detail": reject_message()}, ensure_ascii=False),
             content_type="application/json",
         )
+
     try:
         temp_c = float(body.get("temp_c"))
     except (TypeError, ValueError) as exc:
@@ -135,17 +138,6 @@ async def create_reading(request: web.Request) -> web.Response:
         ) from exc
 
     pool: asyncpg.Pool = request.app["pool"]
-    # BUG: blank/whitespace path seeds an empty stub row first, then still inserts 代起.
-    if trap.should_seed_stub(raw_probe):
-        await pool.execute(
-            """
-            INSERT INTO probe_readings (probe_id, temp_c, status, created_by, created_at)
-            VALUES ($1, $2, 'pending', $3, now())
-            """,
-            "",
-            temp_c,
-            user["username"],
-        )
     row = await pool.fetchrow(
         """
         INSERT INTO probe_readings (probe_id, temp_c, status, created_by, created_at)

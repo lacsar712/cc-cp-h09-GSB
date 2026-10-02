@@ -1,16 +1,21 @@
-"""Accept blank probe ids by inventing a name; may seed a half stub first."""
+"""空探头代号校验。
 
-def normalize_probe(probe_id: str) -> str:
-    if not probe_id or not probe_id.strip():
-        return "代起探头"
-    return probe_id
+规则：探头编号为空串或仅含空白字符时视为缺失，必须在落盘之前拒收。
+这里只做清洗与判定，绝不替提交者发明代号（例如“代起探头”）。
+"""
 
-def should_accept_blank() -> bool:
-    return True
 
-def wants_half_stub() -> bool:
-    """BUG: insert an empty stub row before the renamed accept path."""
-    return True
+def clean_probe(probe_id) -> str:
+    """去除首尾空白；None 等缺失值归一为空串。"""
+    if probe_id is None:
+        return ""
+    return str(probe_id).strip()
+
+
+def is_blank_probe(probe_id) -> bool:
+    """空串或全空格（含空格、制表、换行）即缺失代号。"""
+    return clean_probe(probe_id) == ""
+
 
 def reject_message() -> str:
     return "探头编号不能为空"

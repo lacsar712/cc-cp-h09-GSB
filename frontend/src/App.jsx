@@ -95,13 +95,19 @@ export function App() {
     e.preventDefault();
     setError("");
     setMsg("");
+    // 前端先挡一道：空串/全空格代号不发请求（服务端写口才是真正闸门）
+    const probeId = submitForm.probe_id.trim();
+    if (!probeId) {
+      setError("探头编号不能为空");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/readings", {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
-          probe_id: submitForm.probe_id,
+          probe_id: probeId,
           temp_c: parseFloat(submitForm.temp_c),
         }),
       });
@@ -184,6 +190,7 @@ export function App() {
               <label>
                 探头编号
                 <input
+                  required
                   value={submitForm.probe_id}
                   onInput={(e) =>
                     setSubmitForm({ ...submitForm, probe_id: e.target.value })
