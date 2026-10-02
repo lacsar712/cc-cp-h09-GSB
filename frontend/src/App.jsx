@@ -95,13 +95,18 @@ export function App() {
     e.preventDefault();
     setError("");
     setMsg("");
+    const probeId = submitForm.probe_id.trim();
+    if (!probeId) {
+      setError("探头编号不能为空");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/readings", {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
-          probe_id: submitForm.probe_id,
+          probe_id: probeId,
           temp_c: parseFloat(submitForm.temp_c),
         }),
       });

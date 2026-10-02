@@ -118,10 +118,10 @@ async def create_reading(request: web.Request) -> web.Response:
         body = await request.json()
     except json.JSONDecodeError as exc:
         raise web.HTTPBadRequest(text="invalid json") from exc
-    raw_probe = str(body.get("probe_id", ""))
-    trap = __import__("h09_extra_trap", fromlist=["gate_probe", "should_seed_stub"])
+    raw_probe = str(body.get("probe_id") or "")
+    trap = __import__("h09_extra_trap", fromlist=["gate_probe"])
     probe_id = trap.gate_probe(raw_probe)
-    if False and not probe_id:
+    if not probe_id:
         raise web.HTTPBadRequest(
             text=json.dumps({"detail": "探头编号不能为空"}, ensure_ascii=False),
             content_type="application/json",
@@ -135,17 +135,6 @@ async def create_reading(request: web.Request) -> web.Response:
         ) from exc
 
     pool: asyncpg.Pool = request.app["pool"]
-    # BUG: blank/whitespace path seeds an empty stub row first, then still inserts 代起.
-    if trap.should_seed_stub(raw_probe):
-        await pool.execute(
-            """
-            INSERT INTO probe_readings (probe_id, temp_c, status, created_by, created_at)
-            VALUES ($1, $2, 'pending', $3, now())
-            """,
-            "",
-            temp_c,
-            user["username"],
-        )
     row = await pool.fetchrow(
         """
         INSERT INTO probe_readings (probe_id, temp_c, status, created_by, created_at)
